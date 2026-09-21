@@ -1,21 +1,19 @@
 #include "CDLib.h"
+#include <SFML/System/Clock.hpp>
 #undef main
+
+#include "SFML/Graphics.hpp"
 
 #include "private/CommandManager.h"
 #include "private/WindowManager.h"
 
 #include <atomic>
 #include <cmath>
-#include <condition_variable>
 #include <cstdint>
-#include <functional>
 #include <future>
-#include <list>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <thread>
-#include <vector>
 
 
 static struct GlobalContext
@@ -86,11 +84,11 @@ void clear (window_handler_t windowHandler)
 {
     g_Ctx.commandManager.addCommand([=] (DrawState& state)
     {
-        if (windowHandler.expired())
+        auto windowCtx = windowHandler.lock();
+
+        if (!windowCtx)
             return;
 
-        auto windowCtx = windowHandler.lock();
-        
         windowCtx->texture.clear(state.fillColor);
     });
 }
@@ -99,10 +97,10 @@ void drawLine (int x0, int y0, int x1, int y1, window_handler_t windowHandler)
 {
     g_Ctx.commandManager.addCommand([=] (DrawState& state) mutable
     {
-        if (windowHandler.expired())
-            return;
-
         auto windowCtx = windowHandler.lock();
+
+        if (!windowCtx)
+            return;
 
         if (x1 < x0)
         {
@@ -128,10 +126,10 @@ void drawCircle (int centerX, int centerY, float radius, window_handler_t window
 {
     g_Ctx.commandManager.addCommand([=] (DrawState& state)
     {
-        if (windowHandler.expired())
-            return;
-
         auto windowCtx = windowHandler.lock();
+
+        if (!windowCtx)
+            return;
 
         sf::CircleShape circle(radius);
         circle.setFillColor(state.fillColor);
@@ -149,10 +147,10 @@ void drawEllipse (int x0, int y0, int x1, int y1, window_handler_t windowHandler
 {
     g_Ctx.commandManager.addCommand([=] (DrawState& state) mutable
     {
-        if (windowHandler.expired())
-            return;
-
         auto windowCtx = windowHandler.lock();
+
+        if (!windowCtx)
+            return;
 
         if (x1 < x0)
             std::swap(x0, x1);
@@ -186,10 +184,10 @@ void drawRect (int x0, int y0, int x1, int y1, window_handler_t windowHandler)
 {
     g_Ctx.commandManager.addCommand([=] (DrawState& state) mutable
     {
-        if (windowHandler.expired())
-            return;
-
         auto windowCtx = windowHandler.lock();
+
+        if (!windowCtx)
+            return;
 
         if (x1 < x0)
             std::swap(x0, x1);
@@ -218,10 +216,10 @@ void drawPolygon (sf::Vector2f points[], uint32_t numPoints, window_handler_t wi
 
     g_Ctx.commandManager.addCommand([=] (DrawState& state) mutable
     {
-        if (windowHandler.expired())
-            return;
-
         auto windowCtx = windowHandler.lock();
+
+        if (!windowCtx)
+            return;
 
         polygon.setFillColor(state.fillColor);
         polygon.setOutlineColor(state.color);
@@ -251,10 +249,10 @@ sf::Color getPixel (int x, int y, window_handler_t windowHandler)
 
     g_Ctx.commandManager.addCommand([=] (DrawState&) mutable
     {
-        if (windowHandler.expired())
-            return;
-
         auto windowCtx = windowHandler.lock();
+
+        if (!windowCtx)
+            return;
 
         sf::Color pixel = windowCtx->texture.getTexture().copyToImage().getPixel(sf::Vector2u(x, y));
         promise->set_value(pixel);
@@ -264,6 +262,16 @@ sf::Color getPixel (int x, int y, window_handler_t windowHandler)
     return future.get();
 }
 
+float getTime()
+{
+    static sf::Clock clock;
+    return clock.getElapsedTime().asSeconds();
+}
+
+void sleep (float seconds)
+{
+    std::this_thread::sleep_for(std::chrono::duration<float>(seconds));
+}
 
 int main ()
 {
