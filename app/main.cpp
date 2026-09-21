@@ -4,7 +4,7 @@
 #include <CDLib.h>
 
 
-int main()
+int main ()
 {
     constexpr float PI = std::numbers::pi;
     constexpr float kFPS = 60.f;
